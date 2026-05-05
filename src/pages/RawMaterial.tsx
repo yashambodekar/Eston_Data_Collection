@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Package, Plus, Boxes } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Plus, Boxes, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -12,230 +11,265 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { useInventory } from '@/context/InventoryContext';
-import { toast } from 'sonner';
+} from "@/components/ui/table";
+import { toast } from "sonner";
+
+const BASE_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/rawmaterial";
 
 const RawMaterial = () => {
-  const { rawMaterials, addRawMaterial } = useInventory();
+  const [rawMaterials, setRawMaterials] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    name: '',
-    pieces: '',
-    quantity: '',
-    unit: '',
-    supplier: '',
-    remarks: '',
+    name: "",
+    pieces: "",
+    quantity: "",
+    unit: "",
+    supplier: "",
+    remarks: "",
   });
 
+  /* ================= FETCH ALL ================= */
+  const fetchRawMaterials = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/get-all`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message);
+      setRawMaterials(data.data);
+    } catch {
+      toast.error("Failed to fetch raw materials");
+    }
+  };
+
+  useEffect(() => {
+    fetchRawMaterials();
+  }, []);
+
+  /* ================= INPUT HANDLER ================= */
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  /* ================= ADD / UPDATE ================= */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name.trim() || !formData.pieces || !formData.quantity || !formData.unit.trim()) {
-      toast.error('Please fill in all required fields');
+
+    if (
+      !formData.name.trim() ||
+      !formData.pieces ||
+      !formData.quantity ||
+      !formData.unit.trim()
+    ) {
+      toast.error("Please fill all required fields");
       return;
     }
 
-    addRawMaterial({
+    const payload = {
       name: formData.name.trim(),
       pieces: Number(formData.pieces),
       quantity: Number(formData.quantity),
       unit: formData.unit.trim(),
       supplier: formData.supplier.trim(),
       remarks: formData.remarks.trim(),
-    });
+    };
 
+    try {
+      const url = editingId
+        ? `${BASE_URL}/update/${editingId}`
+        : `${BASE_URL}/add`;
+
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
+
+      toast.success(
+        editingId ? "Material updated successfully" : "Material added",
+      );
+
+      setEditingId(null);
+      setFormData({
+        name: "",
+        pieces: "",
+        quantity: "",
+        unit: "",
+        supplier: "",
+        remarks: "",
+      });
+
+      fetchRawMaterials();
+    } catch (error: any) {
+      toast.error(error.message || "Operation failed");
+    }
+  };
+
+  /* ================= EDIT ================= */
+  const handleEdit = (material: any) => {
+    setEditingId(material._id);
     setFormData({
-      name: '',
-      pieces: '',
-      quantity: '',
-      unit: '',
-      supplier: '',
-      remarks: '',
+      name: material.name,
+      pieces: material.pieces,
+      quantity: material.quantity,
+      unit: material.unit,
+      supplier: material.supplier || "",
+      remarks: material.remarks || "",
     });
+  };
 
-    toast.success('Raw material added successfully!');
+  /* ================= DELETE ================= */
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this material?")) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/delete/${id}`, {
+        method: "DELETE",
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
+
+      toast.success("Material deleted");
+      fetchRawMaterials();
+    } catch {
+      toast.error("Delete failed");
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/"
-              className="h-10 w-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Boxes className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">Raw Materials</h1>
-                <p className="text-sm text-muted-foreground">Manage your inventory</p>
-              </div>
-            </div>
-          </div>
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-6 py-4 flex items-center gap-4">
+          <Link
+            to="/"
+            className="h-10 w-10 rounded-lg border flex items-center justify-center"
+          >
+            <ArrowLeft />
+          </Link>
+          <Boxes />
+          <h1 className="text-xl font-semibold">Raw Materials</h1>
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Form Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-card animate-fade-in sticky top-24">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <h2 className="text-lg font-semibold text-foreground">Add New Material</h2>
-              </div>
+      <main className="container mx-auto px-6 py-8 grid lg:grid-cols-3 gap-8">
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="bg-card border rounded-xl p-6 space-y-4"
+        >
+          <h2 className="font-semibold text-lg">
+            {editingId ? "Edit Material" : "Add Material"}
+          </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Material Name *</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Steel Sheet"
-                    className="mt-1.5"
-                  />
-                </div>
+          <Input
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            placeholder="Name *"
+          />
+          <Input
+            name="pieces"
+            type="number"
+            value={formData.pieces}
+            onChange={handleInputChange}
+            placeholder="Pieces *"
+          />
+          <Input
+            name="quantity"
+            type="number"
+            value={formData.quantity}
+            onChange={handleInputChange}
+            placeholder="Quantity *"
+          />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="pieces">Pieces *</Label>
-                    <Input
-                      id="pieces"
-                      name="pieces"
-                      type="number"
-                      value={formData.pieces}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quantity">Quantity *</Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      value={formData.quantity}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
+          {/* UNIT DROPDOWN */}
+          <select
+            name="unit"
+            value={formData.unit}
+            onChange={handleInputChange}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Select Unit *</option>
+            <option value="PCS">PCS</option>
+            <option value="BOX">BOX</option>
+            <option value="MTR">MTR</option>
+            <option value="SET">SET</option>
+            <option value="CHART">CHART</option>
+          </select>
 
-                <div>
-                  <Label htmlFor="unit">Unit *</Label>
-                  <Input
-                    id="unit"
-                    name="unit"
-                    value={formData.unit}
-                    onChange={handleInputChange}
-                    placeholder="e.g., kg, meters, pieces"
-                    className="mt-1.5"
-                  />
-                </div>
+          <Input
+            name="supplier"
+            value={formData.supplier}
+            onChange={handleInputChange}
+            placeholder="Supplier"
+          />
+          <Textarea
+            name="remarks"
+            value={formData.remarks}
+            onChange={handleInputChange}
+            placeholder="Remarks"
+          />
 
-                <div>
-                  <Label htmlFor="supplier">Supplier</Label>
-                  <Input
-                    id="supplier"
-                    name="supplier"
-                    value={formData.supplier}
-                    onChange={handleInputChange}
-                    placeholder="Supplier name"
-                    className="mt-1.5"
-                  />
-                </div>
+          <Button type="submit">
+            <Plus className="mr-2 h-4 w-4" />
+            {editingId ? "Update" : "Add"}
+          </Button>
+        </form>
 
-                <div>
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <Textarea
-                    id="remarks"
-                    name="remarks"
-                    value={formData.remarks}
-                    onChange={handleInputChange}
-                    placeholder="Additional notes..."
-                    className="mt-1.5 resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Material
-                </Button>
-              </form>
-            </div>
-          </div>
-
-          {/* Table Section */}
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden animate-fade-in">
-              <div className="flex items-center gap-3 p-6 border-b border-border">
-                <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                  <Package className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Material Inventory</h2>
-                  <p className="text-sm text-muted-foreground">{rawMaterials.length} items</p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="text-right">Pieces</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead>Remarks</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rawMaterials.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                          No raw materials yet. Add your first material!
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rawMaterials.map((material) => (
-                        <TableRow key={material.id}>
-                          <TableCell className="font-medium">{material.name}</TableCell>
-                          <TableCell className="text-right">{material.pieces}</TableCell>
-                          <TableCell className="text-right">{material.quantity}</TableCell>
-                          <TableCell>{material.unit}</TableCell>
-                          <TableCell>{material.supplier || '—'}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {material.remarks || '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
+        {/* Table */}
+        <div className="lg:col-span-2 bg-card border rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Pieces</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rawMaterials.map((m) => (
+                <TableRow key={m._id}>
+                  <TableCell>{m.name}</TableCell>
+                  <TableCell>{m.pieces}</TableCell>
+                  <TableCell>{m.quantity}</TableCell>
+                  <TableCell>{m.unit}</TableCell>
+                  <TableCell>{m.supplier || "—"}</TableCell>
+                  <TableCell className="flex gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleEdit(m)}
+                    >
+                      <Pencil size={16} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      onClick={() => handleDelete(m._id)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </main>
     </div>

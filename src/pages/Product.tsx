@@ -1,335 +1,539 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Boxes, Plus, Package, X, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  Boxes,
+  Plus,
+  Package,
+  X,
+  Clock,
+  Pencil,
+  Trash2,
+  ChevronDown,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useInventory, ProductRawMaterial } from '@/context/InventoryContext';
-import { toast } from 'sonner';
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+
+/* ================= API URLS ================= */
+const RAW_MATERIAL_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/rawmaterial/get-all";
+const PRODUCT_ADD_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/product/add";
+const PRODUCT_GET_ALL_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/product/get-all";
+const PRODUCT_DELETE_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/product/delete";
+const PRODUCT_UPDATE_URL =
+  "https://crud-operations-on-backend.onrender.com/api/crud/product/update";
+interface SelectedMaterial {
+  rawMaterialId: string;
+  rawMaterialName: string;
+  requiredQuantity: number;
+}
 
 const Product = () => {
-  const { rawMaterials, products, addProduct } = useInventory();
-  const [formData, setFormData] = useState({
-    name: '',
-    quantity: '',
-    assemblyTime: '',
-    remarks: '',
-  });
-  const [selectedMaterials, setSelectedMaterials] = useState<ProductRawMaterial[]>([]);
-  const [currentMaterialId, setCurrentMaterialId] = useState('');
-  const [currentMaterialQty, setCurrentMaterialQty] = useState('');
+  const [rawMaterials, setRawMaterials] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const [selectedMaterials, setSelectedMaterials] = useState<
+    SelectedMaterial[]
+  >([]);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    quantity: "",
+    assemblyTime: "",
+    remarks: "",
+  });
+
+  const [currentMaterialId, setCurrentMaterialId] = useState("");
+  const [currentMaterialQty, setCurrentMaterialQty] = useState("");
+  const [currentMaterialName, setCurrentMaterialName] = useState("");
+
+  // 🔑 CONTROL DROPDOWN OPEN STATE
+  const [materialOpen, setMaterialOpen] = useState(false);
+
+  /* ================= FETCH ================= */
+  const fetchRawMaterials = async () => {
+    const res = await fetch(RAW_MATERIAL_URL);
+    const data = await res.json();
+    setRawMaterials(data.data);
   };
 
+  const fetchProducts = async () => {
+    const res = await fetch(PRODUCT_GET_ALL_URL);
+    const data = await res.json();
+    setProducts(data.data);
+  };
+
+  useEffect(() => {
+    fetchRawMaterials();
+    fetchProducts();
+  }, []);
+
+  /* ================= ADD MATERIAL ================= */
   const handleAddMaterial = () => {
     if (!currentMaterialId || !currentMaterialQty) {
-      toast.error('Please select a material and enter quantity');
+      toast.error("Select material and quantity");
       return;
     }
 
-    const exists = selectedMaterials.find(m => m.rawMaterialId === currentMaterialId);
-    if (exists) {
-      toast.error('This material is already added');
-      return;
-    }
-
-    const material = rawMaterials.find(m => m.id === currentMaterialId);
+    const material = rawMaterials.find((m) => m._id === currentMaterialId);
     if (!material) return;
 
-    setSelectedMaterials(prev => [
+    setSelectedMaterials((prev) => [
       ...prev,
       {
-        rawMaterialId: currentMaterialId,
+        rawMaterialId: material._id,
         rawMaterialName: material.name,
         requiredQuantity: Number(currentMaterialQty),
-      }
+      },
     ]);
 
-    setCurrentMaterialId('');
-    setCurrentMaterialQty('');
+    setCurrentMaterialId("");
+    setCurrentMaterialQty("");
+    setCurrentMaterialName("");
   };
 
-  const handleRemoveMaterial = (materialId: string) => {
-    setSelectedMaterials(prev => prev.filter(m => m.rawMaterialId !== materialId));
+  const handleRemoveMaterial = (id: string) => {
+    setSelectedMaterials((prev) => prev.filter((m) => m.rawMaterialId !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  /* ================= EDIT PRODUCT ================= */
+  const handleEditProduct = (product: any) => {
+    setEditingProductId(product._id);
+    setFormData({
+      name: product.name,
+      quantity: product.quantity,
+      assemblyTime: product.assemblyTime,
+      remarks: product.remarks || "",
+    });
 
-    if (!formData.name.trim() || !formData.quantity || !formData.assemblyTime) {
-      toast.error('Please fill in all required fields');
+    setSelectedMaterials(
+      product.materials.map((m: any) => {
+        const rm = rawMaterials.find((r) => r._id === m.rawMaterial);
+        return {
+          rawMaterialId: m.rawMaterial,
+          rawMaterialName: rm?.name || "Material",
+          requiredQuantity: m.quantityRequired,
+        };
+      }),
+    );
+    setUpdateModalOpen(true);
+  };
+
+  /* ================= DELETE PRODUCT ================= */
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+
+    const res = await fetch(`${PRODUCT_DELETE_URL}/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      toast.error("Delete failed");
       return;
     }
 
-    addProduct({
+    toast.success("Product deleted");
+    fetchProducts();
+  };
+
+  /* ================= SUBMIT ================= */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const payload = {
       name: formData.name.trim(),
       quantity: Number(formData.quantity),
       assemblyTime: Number(formData.assemblyTime),
       remarks: formData.remarks.trim(),
-      rawMaterials: selectedMaterials,
+      totalComponents: selectedMaterials.length,
+      materials: selectedMaterials.map((m) => ({
+        rawMaterial: m.rawMaterialId,
+        quantityRequired: m.requiredQuantity,
+      })),
+    };
+
+    const isUpdate = !!editingProductId;
+    const url = isUpdate
+      ? `${PRODUCT_UPDATE_URL}/${editingProductId}`
+      : PRODUCT_ADD_URL;
+    const method = isUpdate ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    setFormData({
-      name: '',
-      quantity: '',
-      assemblyTime: '',
-      remarks: '',
-    });
+    if (!res.ok) {
+      toast.error("Failed to save product");
+      return;
+    }
+
+    toast.success(isUpdate ? "Product updated" : "Product added");
+
+    setEditingProductId(null);
+    setFormData({ name: "", quantity: "", assemblyTime: "", remarks: "" });
     setSelectedMaterials([]);
+    setCurrentMaterialId("");
+    setCurrentMaterialQty("");
+    setCurrentMaterialName("");
+    setUpdateModalOpen(false);
 
-    toast.success('Product added successfully!');
+    fetchProducts();
   };
-
-  const availableMaterials = rawMaterials.filter(
-    m => !selectedMaterials.find(sm => sm.rawMaterialId === m.id)
-  );
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/"
-              className="h-10 w-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-muted-foreground" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Boxes className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">Products</h1>
-                <p className="text-sm text-muted-foreground">Manage your products</p>
-              </div>
-            </div>
-          </div>
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-6 py-4 flex items-center gap-4">
+          <Link
+            to="/"
+            className="h-10 w-10 border rounded-lg flex items-center justify-center"
+          >
+            <ArrowLeft />
+          </Link>
+          <Boxes />
+          <h1 className="text-xl font-semibold">Products</h1>
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Form Section */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-card animate-fade-in sticky top-24">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <h2 className="text-lg font-semibold text-foreground">Add New Product</h2>
-              </div>
+      <main className="container mx-auto px-6 py-8 grid lg:grid-cols-3 gap-8">
+        {/* FORM - for Add */}
+        {!editingProductId && (
+          <form
+            onSubmit={handleSubmit}
+            className="bg-card border rounded-xl p-6 space-y-4"
+          >
+            <Label>Product Name</Label>
+            <Input
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+            />
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Assembled Frame"
-                    className="mt-1.5"
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                type="number"
+                placeholder="Quantity"
+                value={formData.quantity}
+                onChange={(e) =>
+                  setFormData({ ...formData, quantity: e.target.value })
+                }
+              />
+              <Input
+                type="number"
+                placeholder="Assembly time (min)"
+                value={formData.assemblyTime}
+                onChange={(e) =>
+                  setFormData({ ...formData, assemblyTime: e.target.value })
+                }
+              />
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="quantity">Quantity *</Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      value={formData.quantity}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="assemblyTime">Assembly Time (min) *</Label>
-                    <Input
-                      id="assemblyTime"
-                      name="assemblyTime"
-                      type="number"
-                      value={formData.assemblyTime}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
+            <Textarea
+              placeholder="Remarks"
+              value={formData.remarks}
+              onChange={(e) =>
+                setFormData({ ...formData, remarks: e.target.value })
+              }
+            />
 
-                <div>
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <Textarea
-                    id="remarks"
-                    name="remarks"
-                    value={formData.remarks}
-                    onChange={handleInputChange}
-                    placeholder="Additional notes..."
-                    className="mt-1.5 resize-none"
-                    rows={2}
-                  />
-                </div>
+            <Label>Raw Materials</Label>
 
-                {/* Raw Material Selection */}
-                <div className="pt-2 border-t border-border">
-                  <Label className="mb-3 block">Raw Materials</Label>
-                  
-                  <div className="space-y-3">
-                    <Select value={currentMaterialId} onValueChange={setCurrentMaterialId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select material" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover">
-                        {availableMaterials.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No materials available
-                          </SelectItem>
-                        ) : (
-                          availableMaterials.map((material) => (
-                            <SelectItem key={material.id} value={material.id}>
-                              {material.name} ({material.quantity} {material.unit})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        value={currentMaterialQty}
-                        onChange={(e) => setCurrentMaterialQty(e.target.value)}
-                        placeholder="Required qty"
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleAddMaterial}
-                        disabled={!currentMaterialId || !currentMaterialQty}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Selected Materials */}
-                  {selectedMaterials.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {selectedMaterials.map((material) => (
-                        <div
-                          key={material.rawMaterialId}
-                          className="flex items-center justify-between bg-muted rounded-lg px-3 py-2"
-                        >
-                          <span className="text-sm text-foreground">
-                            {material.rawMaterialName}
-                            <span className="text-muted-foreground ml-2">
-                              × {material.requiredQuantity}
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMaterial(material.rawMaterialId)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <Button type="submit" className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Product
+            {/* 🔥 SEARCHABLE + RANKED DROPDOWN */}
+            <Popover open={materialOpen} onOpenChange={setMaterialOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={materialOpen}
+                  className="w-full justify-between"
+                >
+                  {currentMaterialName || "Select raw material"}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
-              </form>
-            </div>
-          </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command
+                  filter={(value, search) => {
+                    if (!search) return 1;
 
-          {/* Products List */}
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden animate-fade-in">
-              <div className="flex items-center gap-3 p-6 border-b border-border">
-                <div className="h-10 w-10 rounded-lg bg-accent flex items-center justify-center">
-                  <Boxes className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Product Catalog</h2>
-                  <p className="text-sm text-muted-foreground">{products.length} products</p>
+                    const v = value.toLowerCase();
+                    const s = search.toLowerCase();
+
+                    if (v.startsWith(s)) return 3;
+                    if (v.includes(s)) return 2;
+                    return 0;
+                  }}
+                >
+                  <CommandInput placeholder="Search raw material..." />
+                  <CommandEmpty>No material found.</CommandEmpty>
+
+                  <CommandGroup>
+                    {rawMaterials
+                      .filter(
+                        (m) =>
+                          !selectedMaterials.some(
+                            (sm) => sm.rawMaterialId === m._id,
+                          ),
+                      )
+                      .map((m) => (
+                        <CommandItem
+                          key={m._id}
+                          value={m.name}
+                          onSelect={() => {
+                            setCurrentMaterialId(m._id);
+                            setCurrentMaterialName(m.name);
+                            setMaterialOpen(false); // ✅ CLOSE DROPDOWN
+                          }}
+                        >
+                          {m.name} ({m.quantity} {m.unit})
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Required qty"
+                value={currentMaterialQty}
+                onChange={(e) => setCurrentMaterialQty(e.target.value)}
+              />
+              <Button type="button" onClick={handleAddMaterial}>
+                <Plus />
+              </Button>
+            </div>
+
+            {selectedMaterials.map((rm) => (
+              <div
+                key={rm.rawMaterialId}
+                className="flex justify-between items-center bg-muted px-3 py-2 rounded"
+              >
+                {rm.rawMaterialName} × {rm.requiredQuantity}
+                <X
+                  className="cursor-pointer"
+                  onClick={() => handleRemoveMaterial(rm.rawMaterialId)}
+                />
+              </div>
+            ))}
+
+            <Button type="submit" className="w-full">
+              Add Product
+            </Button>
+          </form>
+        )}
+
+        {/* PRODUCT LIST */}
+        <div className="lg:col-span-2 space-y-4">
+          {products.map((p) => (
+            <div key={p._id} className="border rounded-lg p-5 bg-card">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold">{p.name}</h3>
+                <div className="flex gap-2">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleEditProduct(p)}
+                  >
+                    <Pencil size={16} />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    onClick={() => handleDeleteProduct(p._id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
               </div>
 
-              <div className="p-6">
-                {products.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No products yet. Create your first product!
-                  </div>
-                ) : (
-                  <div className="grid gap-4">
-                    {products.map((product) => (
-                      <div
-                        key={product.id}
-                        className="border border-border rounded-lg p-5 hover:border-primary/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-semibold text-foreground">{product.name}</h3>
-                            {product.remarks && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {product.remarks}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            {product.assemblyTime} min
-                          </div>
-                        </div>
+              <p className="text-sm text-muted-foreground mb-2">
+                Quantity: {p.quantity} | <Clock size={14} className="inline" />{" "}
+                {p.assemblyTime} min
+              </p>
 
-                        <div className="flex items-center gap-4 text-sm mb-3">
-                          <span className="text-muted-foreground">
-                            Quantity: <span className="text-foreground font-medium">{product.quantity}</span>
-                          </span>
-                        </div>
-
-                        {product.rawMaterials.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {product.rawMaterials.map((rm) => (
-                              <Badge key={rm.rawMaterialId} variant="secondary">
-                                <Package className="h-3 w-3 mr-1" />
-                                {rm.rawMaterialName} × {rm.requiredQuantity}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="flex flex-wrap gap-2">
+                {p.materials.map((m: any) => (
+                  <Badge key={m.rawMaterial}>
+                    <Package className="h-3 w-3 mr-1" />
+                    {m.quantityRequired}
+                  </Badge>
+                ))}
               </div>
             </div>
-          </div>
+          ))}
         </div>
+
+        {/* UPDATE PRODUCT MODAL */}
+        <Dialog open={updateModalOpen} onOpenChange={setUpdateModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Update Product</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Label>Product Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  type="number"
+                  placeholder="Quantity"
+                  value={formData.quantity}
+                  onChange={(e) =>
+                    setFormData({ ...formData, quantity: e.target.value })
+                  }
+                />
+                <Input
+                  type="number"
+                  placeholder="Assembly time (min)"
+                  value={formData.assemblyTime}
+                  onChange={(e) =>
+                    setFormData({ ...formData, assemblyTime: e.target.value })
+                  }
+                />
+              </div>
+
+              <Textarea
+                placeholder="Remarks"
+                value={formData.remarks}
+                onChange={(e) =>
+                  setFormData({ ...formData, remarks: e.target.value })
+                }
+              />
+
+              <Label>Raw Materials</Label>
+
+              {/* 🔥 SEARCHABLE + RANKED DROPDOWN */}
+              <Popover open={materialOpen} onOpenChange={setMaterialOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={materialOpen}
+                    className="w-full justify-between"
+                  >
+                    {currentMaterialName || "Select raw material"}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command
+                    filter={(value, search) => {
+                      if (!search) return 1;
+
+                      const v = value.toLowerCase();
+                      const s = search.toLowerCase();
+
+                      if (v.startsWith(s)) return 3;
+                      if (v.includes(s)) return 2;
+                      return 0;
+                    }}
+                  >
+                    <CommandInput placeholder="Search raw material..." />
+                    <CommandEmpty>No material found.</CommandEmpty>
+
+                    <CommandGroup>
+                      {rawMaterials
+                        .filter(
+                          (m) =>
+                            !selectedMaterials.some(
+                              (sm) => sm.rawMaterialId === m._id,
+                            ),
+                        )
+                        .map((m) => (
+                          <CommandItem
+                            key={m._id}
+                            value={m.name}
+                            onSelect={() => {
+                              setCurrentMaterialId(m._id);
+                              setCurrentMaterialName(m.name);
+                              setMaterialOpen(false); // ✅ CLOSE DROPDOWN
+                            }}
+                          >
+                            {m.name} ({m.quantity} {m.unit})
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Required qty"
+                  value={currentMaterialQty}
+                  onChange={(e) => setCurrentMaterialQty(e.target.value)}
+                />
+                <Button type="button" onClick={handleAddMaterial}>
+                  <Plus />
+                </Button>
+              </div>
+
+              {selectedMaterials.map((rm) => (
+                <div
+                  key={rm.rawMaterialId}
+                  className="flex justify-between items-center bg-muted px-3 py-2 rounded"
+                >
+                  {rm.rawMaterialName} × {rm.requiredQuantity}
+                  <X
+                    className="cursor-pointer"
+                    onClick={() => handleRemoveMaterial(rm.rawMaterialId)}
+                  />
+                </div>
+              ))}
+
+              <Button type="submit" className="w-full">
+                Update Product
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
