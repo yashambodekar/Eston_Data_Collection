@@ -28,6 +28,7 @@ const RawMaterial = () => {
     unit: "",
     supplier: "",
     remarks: "",
+    category: "",
   });
 
   /* ================= FETCH ALL ================= */
@@ -76,6 +77,7 @@ const RawMaterial = () => {
       unit: formData.unit.trim(),
       supplier: formData.supplier.trim(),
       remarks: formData.remarks.trim(),
+      category: formData.category.trim(),
     };
 
     try {
@@ -102,6 +104,7 @@ const RawMaterial = () => {
         unit: "",
         supplier: "",
         remarks: "",
+        category: "",
       });
       fetchRawMaterials();
     } catch (error: any) {
@@ -119,6 +122,7 @@ const RawMaterial = () => {
       unit: material.unit,
       supplier: material.supplier || "",
       remarks: material.remarks || "",
+      category: material.category || "",
     });
   };
 
@@ -204,6 +208,14 @@ const RawMaterial = () => {
             onChange={handleInputChange}
             placeholder="Supplier"
           />
+
+          <Input
+            name="category"
+            value={formData.category}
+            onChange={handleInputChange}
+            placeholder="Category"
+          />
+
           <Textarea
             name="remarks"
             value={formData.remarks}
@@ -227,6 +239,7 @@ const RawMaterial = () => {
                 <TableHead>Quantity</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Supplier</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -238,6 +251,7 @@ const RawMaterial = () => {
                   <TableCell>{m.quantity}</TableCell>
                   <TableCell>{m.unit}</TableCell>
                   <TableCell>{m.supplier || "—"}</TableCell>
+                  <TableCell>{m.category || "—"}</TableCell>
                   <TableCell className="flex gap-2">
                     <Button
                       size="icon"
