@@ -45,17 +45,14 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 
-/* ================= API URLS ================= */
-const RAW_MATERIAL_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/rawmaterial/get-all";
-const PRODUCT_ADD_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/product/add";
-const PRODUCT_GET_ALL_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/product/get-all";
-const PRODUCT_DELETE_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/product/delete";
-const PRODUCT_UPDATE_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/product/update";
+import { testApi, productionApi } from "../lib/axiosInstance";
+
+// API endpoints (relative to baseURL)
+const RAW_MATERIAL_URL = "/api/crud/rawmaterial/get-all";
+const PRODUCT_ADD_URL = "/api/crud/product/add";
+const PRODUCT_GET_ALL_URL = "/api/crud/product/get-all";
+const PRODUCT_DELETE_URL = "/api/crud/product/delete";
+const PRODUCT_UPDATE_URL = "/api/crud/product/update";
 interface SelectedMaterial {
   rawMaterialId: string;
   rawMaterialName: string;
@@ -88,15 +85,23 @@ const Product = () => {
 
   /* ================= FETCH ================= */
   const fetchRawMaterials = async () => {
-    const res = await fetch(RAW_MATERIAL_URL);
-    const data = await res.json();
-    setRawMaterials(data.data);
+    try {
+      // const res = await testApi.get(RAW_MATERIAL_URL);
+      const res = await productionApi.get(RAW_MATERIAL_URL);
+      setRawMaterials(res.data.data);
+    } catch (error: any) {
+      toast.error("Failed to fetch raw materials");
+    }
   };
 
   const fetchProducts = async () => {
-    const res = await fetch(PRODUCT_GET_ALL_URL);
-    const data = await res.json();
-    setProducts(data.data);
+    try {
+      // const res = await testApi.get(PRODUCT_GET_ALL_URL);
+      const res = await productionApi.get(PRODUCT_GET_ALL_URL);
+      setProducts(res.data.data);
+    } catch (error: any) {
+      toast.error("Failed to fetch products");
+    }
   };
 
   useEffect(() => {
@@ -159,17 +164,14 @@ const Product = () => {
   const handleDeleteProduct = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
-    const res = await fetch(`${PRODUCT_DELETE_URL}/${id}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
+    try {
+      // const res = await testApi.delete(`${PRODUCT_DELETE_URL}/${id}`);
+      const res = await productionApi.delete(`${PRODUCT_DELETE_URL}/${id}`);
+      toast.success("Product deleted");
+      fetchProducts();
+    } catch (error: any) {
       toast.error("Delete failed");
-      return;
     }
-
-    toast.success("Product deleted");
-    fetchProducts();
   };
 
   /* ================= SUBMIT ================= */
@@ -192,22 +194,28 @@ const Product = () => {
     const url = isUpdate
       ? `${PRODUCT_UPDATE_URL}/${editingProductId}`
       : PRODUCT_ADD_URL;
-    const method = isUpdate ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
+    try {
+      if (isUpdate) {
+        // await testApi.put(url, payload);
+        await productionApi.put(url, payload);
+        toast.success("Product updated");
+      // } else {
+      //   await testApi.post(url, payload);
+        await productionApi.post(url, payload);
+        toast.success("Product added");
+      }
+      setEditingProductId(null);
+      setFormData({
+        name: "",
+        quantity: "",
+        assemblyTime: "",
+        remarks: "",
+      });
+      setSelectedMaterials([]);
+      fetchProducts();
+    } catch (error: any) {
       toast.error("Failed to save product");
-      return;
     }
-
-    toast.success(isUpdate ? "Product updated" : "Product added");
-
-    setEditingProductId(null);
     setFormData({ name: "", quantity: "", assemblyTime: "", remarks: "" });
     setSelectedMaterials([]);
     setCurrentMaterialId("");

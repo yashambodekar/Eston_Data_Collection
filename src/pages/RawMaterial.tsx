@@ -13,9 +13,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { testApi, productionApi } from "../lib/axiosInstance";
 
-const BASE_URL =
-  "https://crud-operations-on-backend.onrender.com/api/crud/rawmaterial";
+const BASE_URL = "/api/crud/rawmaterial";
 
 const RawMaterial = () => {
   const [rawMaterials, setRawMaterials] = useState<any[]>([]);
@@ -33,12 +33,10 @@ const RawMaterial = () => {
   /* ================= FETCH ALL ================= */
   const fetchRawMaterials = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/get-all`);
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.message);
-      setRawMaterials(data.data);
-    } catch {
+      // const res = await testApi.get(`${BASE_URL}/get-all`);
+      const res = await productionApi.get(`${BASE_URL}/get-all`);
+      setRawMaterials(res.data.data);
+    } catch (error: any) {
       toast.error("Failed to fetch raw materials");
     }
   };
@@ -87,19 +85,15 @@ const RawMaterial = () => {
 
       const method = editingId ? "PUT" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      toast.success(
-        editingId ? "Material updated successfully" : "Material added",
-      );
-
+      if (method === "PUT") {
+      //   await testApi.put(url, payload);
+        await productionApi.put(url, payload);
+        toast.success("Material updated successfully");
+      } else {
+        // await testApi.post(url, payload);
+        await productionApi.post(url, payload);
+        toast.success("Material added");
+      }
       setEditingId(null);
       setFormData({
         name: "",
@@ -109,7 +103,6 @@ const RawMaterial = () => {
         supplier: "",
         remarks: "",
       });
-
       fetchRawMaterials();
     } catch (error: any) {
       toast.error(error.message || "Operation failed");
@@ -134,16 +127,11 @@ const RawMaterial = () => {
     if (!confirm("Are you sure you want to delete this material?")) return;
 
     try {
-      const res = await fetch(`${BASE_URL}/delete/${id}`, {
-        method: "DELETE",
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
+      // await testApi.delete(`${BASE_URL}/delete/${id}`);
+      await productionApi.delete(`${BASE_URL}/delete/${id}`);
       toast.success("Material deleted");
       fetchRawMaterials();
-    } catch {
+    } catch (error: any) {
       toast.error("Delete failed");
     }
   };
