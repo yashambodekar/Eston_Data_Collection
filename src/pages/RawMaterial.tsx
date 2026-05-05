@@ -17,9 +17,48 @@ import { testApi, productionApi } from "../lib/axiosInstance";
 
 const BASE_URL = "/api/crud/rawmaterial";
 
+const CATEGORY_OPTIONS = [
+  "Virat Fuse",
+  "Contactor",
+  "Connector",
+  "Convertor Relay (Red Relay)",
+  "Mobile Auto",
+  "MK1 Relay (Black)",
+  "MK2 Relay (DMC)",
+  "MU Relay",
+  "Virat Capacitor",
+  "Shubh Capacitor",
+  "Epcos Capacitor",
+  "Box Capacitor",
+  "Oil Capacitor",
+  "Coil",
+  "MCB",
+  "Base",
+  "8 MM Dol Starter",
+  "10 MM Dol Starter",
+  "MU DMC Starter",
+  "Patti Kit",
+  "Switch",
+  "Meter",
+  "Transformer",
+  "Wire",
+  "Wire Connector",
+  "Ready Wire Set",
+  "Blank PCB",
+  "Assemble PCB",
+  "Metal Body",
+  "Screw",
+  "Outer Box",
+  "Electronic Components",
+  "Ready Auto",
+  "Ready Panel"
+];
+
 const RawMaterial = () => {
   const [rawMaterials, setRawMaterials] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -88,7 +127,7 @@ const RawMaterial = () => {
       const method = editingId ? "PUT" : "POST";
 
       if (method === "PUT") {
-      //   await testApi.put(url, payload);
+        //   await testApi.put(url, payload);
         await productionApi.put(url, payload);
         toast.success("Material updated successfully");
       } else {
@@ -209,12 +248,60 @@ const RawMaterial = () => {
             placeholder="Supplier"
           />
 
-          <Input
-            name="category"
-            value={formData.category}
-            onChange={handleInputChange}
-            placeholder="Category"
-          />
+          <div className="relative">
+            {/* SELECT BOX */}
+            <div
+              onClick={() => setIsCategoryOpen((prev) => !prev)}
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm flex items-center justify-between cursor-pointer"
+            >
+              <span className={formData.category ? "" : "text-muted-foreground"}>
+                {formData.category || "Select Category"}
+              </span>
+              <span>▼</span>
+            </div>
+
+            {/* DROPDOWN */}
+            {isCategoryOpen && (
+              <div className="absolute z-10 w-full bg-card border rounded-md mt-1 shadow-lg">
+
+                {/* SEARCH INPUT */}
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  className="w-full px-3 py-2 border-b outline-none text-sm"
+                />
+
+                {/* OPTIONS */}
+                <div className="max-h-48 overflow-y-auto">
+                  {CATEGORY_OPTIONS.filter((cat) =>
+                    cat.toLowerCase().includes(categorySearch.toLowerCase())
+                  ).map((cat) => (
+                    <div
+                      key={cat}
+                      onClick={() => {
+                        setFormData((prev) => ({ ...prev, category: cat }));
+                        setIsCategoryOpen(false);
+                        setCategorySearch("");
+                      }}
+                      className="px-3 py-2 cursor-pointer hover:bg-muted text-sm"
+                    >
+                      {cat}
+                    </div>
+                  ))}
+
+                  {CATEGORY_OPTIONS.filter((cat) =>
+                    cat.toLowerCase().includes(categorySearch.toLowerCase())
+                  ).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No category found
+                      </div>
+                    )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <Textarea
             name="remarks"
