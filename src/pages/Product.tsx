@@ -298,7 +298,7 @@ const Product = () => {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
+              <PopoverContent align="start" sideOffset={8} className="min-w-[260px] max-w-[320px] p-0">
                 <Command
                   filter={(value, search) => {
                     if (!search) return 1;
