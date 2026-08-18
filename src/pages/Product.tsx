@@ -194,28 +194,32 @@ const Product = () => {
     const url = isUpdate
       ? `${PRODUCT_UPDATE_URL}/${editingProductId}`
       : PRODUCT_ADD_URL;
-    try {
-      if (isUpdate) {
-        // await testApi.put(url, payload);
-        await productionApi.put(url, payload);
-        toast.success("Product updated");
-      } else {
-      //   await testApi.post(url, payload);
-        await productionApi.post(url, payload);
-        toast.success("Product added");
-      }
-      setEditingProductId(null);
-      setFormData({
-        name: "",
-        quantity: "",
-        assemblyTime: "",
-        remarks: "",
-      });
-      setSelectedMaterials([]);
-      fetchProducts();
-    } catch (error: any) {
-      toast.error("Failed to save product");
-    }
+   try {
+  if (isUpdate) {
+    await productionApi.put(url, payload);
+    toast.success("Product updated");
+  } else {
+    await productionApi.post(url, payload);
+    toast.success("Product added");
+  }
+
+  setEditingProductId(null);
+
+  setFormData({
+    name: "",
+    quantity: "",
+    assemblyTime: "",
+    remarks: "",
+  });
+
+  setSelectedMaterials([]);
+
+  fetchProducts();
+
+} catch (error: any) {
+  console.error("Product save error:", error);
+  toast.error("Failed to save product");
+}
     setFormData({ name: "", quantity: "", assemblyTime: "", remarks: "" });
     setSelectedMaterials([]);
     setCurrentMaterialId("");
