@@ -199,7 +199,7 @@ const Product = () => {
         // await testApi.put(url, payload);
         await productionApi.put(url, payload);
         toast.success("Product updated");
-      // } else {
+      } else {
       //   await testApi.post(url, payload);
         await productionApi.post(url, payload);
         toast.success("Product added");
